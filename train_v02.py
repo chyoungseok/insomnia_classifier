@@ -16,16 +16,16 @@ print("done !")
 
 # Train, Validation, Test Split
 total_size = len(full_dataset)
-train_size = int(0.8 * total_size)
-val_size = int(0.1 * total_size)
+train_size = int(0.6 * total_size)
+val_size = int(0.3 * total_size)
 test_size = total_size - train_size - val_size  # 나머지는 test에 할당
+generator1 = torch.Generator().manual_seed(42)
 train_dataset, val_dataset, test_dataset = random_split(full_dataset, [train_size, val_size, test_size])
 
-batch_size = 4
-generator1 = torch.Generator().manual_seed(20)
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, generator=generator1)
-val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True, generator=generator1)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True, generator=generator1)
+batch_size = 16
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
 # 모델 초기화
 device = torch.device("cuda")
@@ -35,11 +35,11 @@ model = SimpleSleepPPGModel().to(device)
 num_epochs = 100
 learning_rate = 0.01
 criterion = nn.CrossEntropyLoss()
-# criterion = nn.BCEWithLogitsLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
 
-# Learning Rate Scheduler 설정 (Cosine Annealing)
-scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+# Learning Rate Scheduler 설정
+# scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.5)
 
 # 학습 기록용 변수
 train_losses, val_losses = [], []
@@ -103,7 +103,7 @@ for epoch in range(num_epochs):
     val_accuracies.append(val_accuracy)
 
     # Learning Rate Scheduler 업데이트
-    scheduler.step()
+    scheduler.step(val_loss)
     learning_rates.append(optimizer.param_groups[0]['lr'])
 
     print(f"Epoch [{epoch + 1}/{num_epochs}], "
